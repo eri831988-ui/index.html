@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>夫婦時間おすすめ診断ツール（ライト版）</title>
+  <!-- Tailwind（CDN版：ビルド不要） -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-rose-50 to-white">
+  <main class="max-w-3xl mx-auto p-6">
+    <h1 class="text-2xl md:text-3xl font-bold mb-2">夫婦時間おすすめ診断ツール</h1>
+    <p class="text-gray-600 mb-6">10問に答えると、あなたに合ったタイプと具体アイデア（10個）が表示されます。</p>
+
+    <div id="app" class="w-full rounded-2xl bg-white shadow-xl border p-6 md:p-10">
+      <div id="start">
+        <button id="startBtn" class="px-5 py-3 rounded-xl bg-rose-500 text-white">診断をはじめる</button>
+      </div>
+
+      <div id="quiz" class="hidden">
+        <div class="flex justify-between items-center text-sm text-gray-500 mb-2">
+          <span id="qCount"></span>
+          <span id="progPct"></span>
+        </div>
+        <div class="w-full h-2 bg-gray-200 rounded mb-4">
+          <div id="progBar" class="h-2 bg-rose-500 rounded" style="width:0%"></div>
+        </div>
+        <h2 id="qText" class="text-xl font-medium mb-4"></h2>
+        <div id="options" class="grid gap-3 md:grid-cols-2"></div>
+        <div class="flex justify-end mt-6">
+          <button id="seeResult" class="px-5 py-3 rounded-xl bg-rose-500 text-white disabled:opacity-50" disabled>診断結果を見る</button>
+        </div>
+      </div>
+
+      <div id="result" class="hidden space-y-6">
+        <div class="flex justify-between items-center">
+          <h2 class="text-2xl font-semibold">診断結果</h2>
+          <button id="retry" class="text-rose-600 underline">もう一度</button>
+        </div>
+        <div id="resultBlocks" class="grid gap-6"></div>
+        <div class="p-4 rounded-xl bg-rose-50 border border-rose-100 text-sm">
+          もっと具体的に落とし込みたい人は「うちの状況で何から始めればいい？」とDMください。あなた専用の一歩を一緒に作ります。
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const QUESTIONS = [
+      { t: "最近の夫婦の雰囲気は？", o: [{k:"A",l:"会話が少なく気まずい"},{k:"B",l:"仲はいいけど盛り上がらない"},{k:"C",l:"忙しくてほぼ時間が取れない"},{k:"D",l:"仲良いけどマンネリ気味"}]},
+      { t: "夫婦時間に求めるものは？", o: [{k:"A",l:"会話したい"},{k:"B",l:"一緒に楽しみたい"},{k:"C",l:"癒しやリラックス"},{k:"D",l:"外出して気分転換"}]},
+      { t: "相手のタイプに近いのは？", o: [{k:"A",l:"無口であまり話さない"},{k:"B",l:"ノリはいいけどすぐ飽きる"},{k:"C",l:"まったり系でのんびりしたい"},{k:"D",l:"行動派で外に出たい"}]},
+      { t: "夫婦時間の理想は？", o: [{k:"A",l:"短時間でいいから毎日続けたい"},{k:"B",l:"休日にまとまった時間を過ごしたい"},{k:"C",l:"特別なイベントを楽しみたい"},{k:"D",l:"思いついた時に気軽にやりたい"}]},
+      { t: "もし理想の夫婦時間が叶ったら？", o: [{k:"A",l:"今より気楽に話せそう"},{k:"B",l:"一緒に笑える時間が増えそう"},{k:"C",l:"落ち着いて安心できそう"},{k:"D",l:"新鮮でドキドキしそう"}]},
+      { t: "休日の過ごし方は？", o: [{k:"A",l:"家でまったりするのが好き"},{k:"B",l:"ちょっとした作業や遊びをしたい"},{k:"C",l:"昼寝やリラックスを大事にしたい"},{k:"D",l:"外に出かけて気分を変えたい"}]},
+      { t: "会話のスタイルは？", o: [{k:"A",l:"ゆっくりじっくり話したい"},{k:"B",l:"ふざけ合ったり盛り上がりたい"},{k:"C",l:"会話少なめで穏やかに過ごしたい"},{k:"D",l:"会話より行動・体験重視"}]},
+      { t: "一緒にやってみたいことは？", o: [{k:"A",l:"お互いのことをもっと知るような話"},{k:"B",l:"ゲームや料理など共通体験"},{k:"C",l:"リラックスできる習慣"},{k:"D",l:"旅行や新しい場所探検"}]},
+      { t: "夫婦時間の長さの理想は？", o: [{k:"A",l:"10分くらいでOK"},{k:"B",l:"30分〜1時間しっかり"},{k:"C",l:"気分次第でゆるく長め"},{k:"D",l:"半日〜1日がっつり"}]},
+      { t: "今いちばん欲しいのは？", o: [{k:"A",l:"安心して話せる空気"},{k:"B",l:"笑い合える楽しい時間"},{k:"C",l:"一緒に癒される落ち着き"},{k:"D",l:"新鮮な刺激や冒険感"}]},
+    ];
+
+    const RESULT_MAP = {
+      A: { title: "🌸 タイプA：会話派", sub: "とにかく自然に話がしたい！人向け", items: [
+        "今日のハイライトを1つずつ話す","相手の趣味について教えてもらう","昔の写真を見て思い出話","『もし◯◯だったら？』妄想トーク","今度やりたいことリストを一緒に書く","子どもの頃の話を聞き合う","週末に『1週間の振り返りトーク』","ニュースや本を読んで感想を話す","お互いの『今日の学び』をシェア","未来の旅行プランを語り合う"
+      ]},
+      B: { title: "🎲 タイプB：体験派", sub: "一緒に何かやって盛り上がりたい！人向け", items: [
+        "一緒に料理して晩酌","短時間のボードゲーム（UNOなど）","パズルやレゴを一緒に作る","DIYや模様替えを一緒にする","YouTubeの筋トレを一緒にやる","TikTokの簡単ダンスに挑戦","新しいお菓子やお酒を一緒に試す","簡単なお菓子作り","一緒に朝活（散歩・カフェ・勉強）","シリーズもののドラマを一緒に観る"
+      ]},
+      C: { title: "☁️ タイプC：癒し派", sub: "とにかく一緒にリラックスしたい！人向け", items: [
+        "一緒にヨガ","お風呂に一緒に入る（抵抗なければ）","部屋を暗くしてキャンドルやアロマタイム","ハンドマッサージし合う","一緒に瞑想","猫カフェに行く","星を眺めながらおしゃべり","庭やベランダで日向ぼっこ","お互いに『頑張ってるなー』って思うことを伝える","ペアストレッチに挑戦"
+      ]},
+      D: { title: "🚗 タイプD：アクティブ派", sub: "外に出て新鮮な時間を楽しみたい！人向け", items: [
+        "ドライブに行く","季節イベント（花火・紅葉・桜）に行く","まだ行ったことのないスーパーへ行って冒険気分","新しいカフェでモーニング","美術館や博物館を巡る","夜のお散歩デート","ピクニックランチ","サイクリング","スーパーで『今夜のごはんを一緒に決める』","映画館で映画鑑賞"
+      ]},
+    };
+
+    // ---- DOM refs
+    const start = document.getElementById("start");
+    const startBtn = document.getElementById("startBtn");
+    const quiz = document.getElementById("quiz");
+    const qCount = document.getElementById("qCount");
+    const qText = document.getElementById("qText");
+    const options = document.getElementById("options");
+    const progBar = document.getElementById("progBar");
+    const progPct = document.getElementById("progPct");
+    const seeResult = document.getElementById("seeResult");
+    const result = document.getElementById("result");
+    const retry = document.getElementById("retry");
+    const resultBlocks = document.getElementById("resultBlocks");
+
+    let step = 0;
+    const answers = [];
+
+    function renderQuestion() {
+      const total = QUESTIONS.length;
+      qCount.textContent = `Q${step+1} / ${total}`;
+      const pct = Math.round(((step+1) / total) * 100);
+      progBar.style.width = pct + "%";
+      progPct.textContent = `進捗 ${pct}%`;
+
+      const q = QUESTIONS[step];
+      qText.textContent = q.t;
+      options.innerHTML = "";
+      q.o.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.className = "text-left p-4 rounded-xl border transition border-gray-200 hover:border-rose-500 hover:bg-rose-50";
+        btn.innerHTML = `<span class="mr-2 text-xs inline-flex w-5 h-5 items-center justify-center rounded-full border">${opt.k}</span>${opt.l}`;
+        btn.onclick = () => {
+          answers[step] = opt.k;
+          if (step < total - 1) {
+            step++;
+            renderQuestion();
+          } else {
+            seeResult.disabled = false;
+          }
+        };
+        options.appendChild(btn);
+      });
+    }
+
+    function calcTopKeys() {
+      const score = { A:0, B:0, C:0, D:0 };
+      answers.forEach(k => { score[k]++; });
+      const max = Math.max(...Object.values(score));
+      return Object.keys(score).filter(k => score[k] === max);
+    }
+
+    function renderResult() {
+      resultBlocks.innerHTML = "";
+      const tops = calcTopKeys();
+      tops.forEach(k => {
+        const b = document.createElement("div");
+        b.className = "p-5 rounded-xl border";
+        const data = RESULT_MAP[k];
+        b.innerHTML = `
+          <h3 class="text-xl font-semibold mb-1">${data.title}</h3>
+          <p class="text-sm text-gray-500 mb-3">${data.sub}</p>
+          <ul class="list-disc pl-6 space-y-2">
+            ${data.items.map(it => `<li>${it}</li>`).join("")}
+          </ul>
+        `;
+        resultBlocks.appendChild(b);
+      });
+    }
+
+    startBtn.onclick = () => {
+      start.classList.add("hidden");
+      quiz.classList.remove("hidden");
+      step = 0;
+      answers.length = 0;
+      seeResult.disabled = true;
+      renderQuestion();
+    };
+
+    seeResult.onclick = () => {
+      quiz.classList.add("hidden");
+      result.classList.remove("hidden");
+      renderResult();
+    };
+
+    retry.onclick = () => {
+      result.classList.add("hidden");
+      start.classList.remove("hidden");
+      progBar.style.width = "0%";
+      progPct.textContent = "進捗 0%";
+    };
+  </script>
+</body>
+</html>
