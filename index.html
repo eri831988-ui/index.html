@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>夫婦時間おすすめ診断ツール（ライト版）</title>
-  <!-- Tailwind（CDN版：ビルド不要） -->
+  <title>夫婦時間おすすめ診断ツール</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <!-- Tailwind（CDN）-->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-b from-rose-50 to-white">
@@ -13,10 +14,12 @@
     <p class="text-gray-600 mb-6">10問に答えると、あなたに合ったタイプと具体アイデア（10個）が表示されます。</p>
 
     <div id="app" class="w-full rounded-2xl bg-white shadow-xl border p-6 md:p-10">
+      <!-- スタート -->
       <div id="start">
         <button id="startBtn" class="px-5 py-3 rounded-xl bg-rose-500 text-white">診断をはじめる</button>
       </div>
 
+      <!-- 質問 -->
       <div id="quiz" class="hidden">
         <div class="flex justify-between items-center text-sm text-gray-500 mb-2">
           <span id="qCount"></span>
@@ -32,20 +35,24 @@
         </div>
       </div>
 
+      <!-- 結果 -->
       <div id="result" class="hidden space-y-6">
         <div class="flex justify-between items-center">
           <h2 class="text-2xl font-semibold">診断結果</h2>
           <button id="retry" class="text-rose-600 underline">もう一度</button>
         </div>
         <div id="resultBlocks" class="grid gap-6"></div>
+
+        <!-- CTA（「結果教えてね」に変更済み） -->
         <div class="p-4 rounded-xl bg-rose-50 border border-rose-100 text-sm">
-        　　結果や、これからやってみようと思うことDMで教えてね！  
+          やってみた感想や結果やこれからやってみようと思うこと<span class="font-semibold">教えてね！</span> 質問や相談も大募集！
         </div>
       </div>
     </div>
   </main>
 
   <script>
+    /* ====== データ ====== */
     const QUESTIONS = [
       { t: "最近の夫婦の雰囲気は？", o: [{k:"A",l:"会話が少なく気まずい"},{k:"B",l:"仲はいいけど盛り上がらない"},{k:"C",l:"忙しくてほぼ時間が取れない"},{k:"D",l:"仲良いけどマンネリ気味"}]},
       { t: "夫婦時間に求めるものは？", o: [{k:"A",l:"会話したい"},{k:"B",l:"一緒に楽しみたい"},{k:"C",l:"癒しやリラックス"},{k:"D",l:"外出して気分転換"}]},
@@ -74,7 +81,7 @@
       ]},
     };
 
-    // ---- DOM refs
+    /* ====== 参照 ====== */
     const start = document.getElementById("start");
     const startBtn = document.getElementById("startBtn");
     const quiz = document.getElementById("quiz");
@@ -118,29 +125,37 @@
       });
     }
 
-    function calcTopKeys() {
+    // ★ 同点でも必ずひとつに決める（後勝ち→優先順位）
+    function pickTopKey() {
       const score = { A:0, B:0, C:0, D:0 };
-      answers.forEach(k => { score[k]++; });
+      answers.forEach(k => { if (k) score[k]++; });
       const max = Math.max(...Object.values(score));
-      return Object.keys(score).filter(k => score[k] === max);
+      const top = Object.keys(score).filter(k => score[k] === max);
+      if (top.length === 1) return top[0];
+
+      // 直近の回答でタイブレーク（後から選んだ傾向を優先）
+      for (let i = answers.length - 1; i >= 0; i--) {
+        if (top.includes(answers[i])) return answers[i];
+      }
+      // 固定優先順位（必要なら並び替えOK）
+      const priority = ["A","B","C","D"];
+      return priority.find(k => top.includes(k)) || "A";
     }
 
     function renderResult() {
       resultBlocks.innerHTML = "";
-      const tops = calcTopKeys();
-      tops.forEach(k => {
-        const b = document.createElement("div");
-        b.className = "p-5 rounded-xl border";
-        const data = RESULT_MAP[k];
-        b.innerHTML = `
-          <h3 class="text-xl font-semibold mb-1">${data.title}</h3>
-          <p class="text-sm text-gray-500 mb-3">${data.sub}</p>
-          <ul class="list-disc pl-6 space-y-2">
-            ${data.items.map(it => `<li>${it}</li>`).join("")}
-          </ul>
-        `;
-        resultBlocks.appendChild(b);
-      });
+      const k = pickTopKey();
+      const data = RESULT_MAP[k];
+      const b = document.createElement("div");
+      b.className = "p-5 rounded-xl border";
+      b.innerHTML = `
+        <h3 class="text-xl font-semibold mb-1">${data.title}</h3>
+        <p class="text-sm text-gray-500 mb-3">${data.sub}</p>
+        <ul class="list-disc pl-6 space-y-2">
+          ${data.items.map(it => `<li>${it}</li>`).join("")}
+        </ul>
+      `;
+      resultBlocks.appendChild(b);
     }
 
     startBtn.onclick = () => {
@@ -149,6 +164,8 @@
       step = 0;
       answers.length = 0;
       seeResult.disabled = true;
+      progBar.style.width = "0%";
+      progPct.textContent = "進捗 0%";
       renderQuestion();
     };
 
@@ -156,13 +173,12 @@
       quiz.classList.add("hidden");
       result.classList.remove("hidden");
       renderResult();
+      window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     retry.onclick = () => {
       result.classList.add("hidden");
       start.classList.remove("hidden");
-      progBar.style.width = "0%";
-      progPct.textContent = "進捗 0%";
     };
   </script>
 </body>
